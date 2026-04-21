@@ -52,13 +52,13 @@ This repository includes a `Containerfile` with OCI-compatible configuration to 
 From the repo root:
 
 ```bash
-container build -f Containerfile -t sift:22.04-arm64 .
+container build -f Containerfile -t <container name> .
 ```
 
 ### Step 4: Run the Container
 
 ```bash
-container run --rm -it -v "${PWD}/evidence:/evidence" sift:22.04-arm64 bash
+container run --rm -it -v "${PWD}/evidence:/evidence" <container name> bash
 ```
 
 ---
