@@ -15,12 +15,12 @@ RUN useradd -m -s /bin/bash sift && \
 
 # 3. Clone Jonathan's repo and fix the permissions
 WORKDIR /opt
-RUN git clone https://github.com/jonathanlooi/sift-on-arm.git && \
-    chown -R sift:sift /opt/sift-on-arm
+RUN git clone https://github.com/matteturner/sift-on-container.git && \
+    chown -R sift:sift /opt/sift-on-container
 
 # 4. Run the installer as the 'sift' user
 USER sift
-WORKDIR /opt/sift-on-arm
+WORKDIR /opt/sift-on-container
 RUN chmod +x install.sh && \
     # We use '|| true' to ensure that if a minor Salt state fails (like a GUI tweak), 
     # the build continues so the CLI tools still get installed.
