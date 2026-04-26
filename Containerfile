@@ -24,7 +24,7 @@ WORKDIR /opt/sift-on-container
 RUN chmod +x install.sh && \
     # We use '|| true' to ensure that if a minor Salt state fails (like a GUI tweak), 
     # the build continues so the CLI tools still get installed.
-    (yes | ./install.sh) || true
+    (yes | sudo ./install.sh) || true
 
 # 5. Switch back to root for final cleanup (optional)
 USER root
