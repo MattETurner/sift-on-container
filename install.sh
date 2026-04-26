@@ -45,7 +45,22 @@ if [[ "$VERSION_ID" != "22.04" ]]; then
     [[ "$confirm" =~ ^[Yy]$ ]] || exit 0
 fi
 
+detect_cast_user() {
+    if [[ -n "${CAST_INSTALL_USER:-}" ]]; then
+        echo "$CAST_INSTALL_USER"
+    elif [[ -n "${SUDO_USER:-}" && "$SUDO_USER" != "root" ]]; then
+        echo "$SUDO_USER"
+    elif id -u sift &>/dev/null; then
+        echo "sift"
+    else
+        error "Cast requires a non-root install user. Set CAST_INSTALL_USER or run through sudo."
+    fi
+}
+
+CAST_INSTALL_USER="$(detect_cast_user)"
+
 info "Starting SIFT ARM64 installation on Ubuntu $VERSION_ID ($ARCH)"
+info "Using Cast install user: $CAST_INSTALL_USER"
 echo ""
 
 # --- Step 1: Apply ARM64 patches to the SaltStack states ---
@@ -81,7 +96,7 @@ fi
 SIFT_CACHE_BASE="/var/cache/cast/teamdfir_sift-saltstack"
 
 if [[ -d "$SIFT_CACHE_BASE" ]]; then
-    EXISTING=$(ls -1 "$SIFT_CACHE_BASE" 2>/dev/null | head -1)
+    EXISTING=$({ ls -1 "$SIFT_CACHE_BASE" 2>/dev/null || true; } | head -1)
     if [[ -n "$EXISTING" ]]; then
         info "SIFT SaltStack states already downloaded: $EXISTING"
         SIFT_SOURCE="${SIFT_CACHE_BASE}/${EXISTING}/source"
@@ -90,11 +105,11 @@ fi
 
 if [[ -z "${SIFT_SOURCE:-}" ]]; then
     info "Downloading SIFT SaltStack states..."
-    # cast download fetches the states without applying them
-    cast install teamdfir/sift-saltstack --dry-run 2>/dev/null || true
+    # Cast v1.0.8 has no download-only mode. Running without an install user
+    # downloads the release into cache, then stops before applying Salt states.
+    env -u SUDO_USER -u CAST_SUDO_USER cast install teamdfir/sift-saltstack --log-level warn || true
 
-    # If dry-run didn't populate the cache, do a full download via git
-    LATEST=$(ls -1t "$SIFT_CACHE_BASE" 2>/dev/null | head -1)
+    LATEST=$({ ls -1t "$SIFT_CACHE_BASE" 2>/dev/null || true; } | head -1)
     if [[ -z "$LATEST" ]]; then
         warn "Could not pre-download states. They will be downloaded during install."
     else
@@ -214,7 +229,7 @@ DOCKER_EOF
         if ! grep -q "aarch64" "$RADARE2_SLS"; then
             info "Patching radare2.sls for ARM64 binary..."
             # Get current version from the file
-            R2_VERSION=$(grep -oP 'set version = "\K[^"]+' "$RADARE2_SLS" | head -1)
+            R2_VERSION=$({ grep -oP 'set version = "\K[^"]+' "$RADARE2_SLS" || true; } | head -1)
             if [[ -z "$R2_VERSION" ]]; then
                 R2_VERSION="5.9.6"
             fi
@@ -273,17 +288,17 @@ warn "  - rar: not available in Ubuntu ARM64 repos"
 warn "  - powershell: amd64-only (gracefully skipped)"
 echo ""
 
-cast install teamdfir/sift-saltstack
+cast install --user "$CAST_INSTALL_USER" teamdfir/sift-saltstack
 
 # --- Step 6: Apply patches if states were just downloaded ---
 
-LATEST=$(ls -1t "$SIFT_CACHE_BASE" 2>/dev/null | head -1)
+LATEST=$({ ls -1t "$SIFT_CACHE_BASE" 2>/dev/null || true; } | head -1)
 if [[ -n "$LATEST" ]]; then
     NEW_SIFT_SOURCE="${SIFT_CACHE_BASE}/${LATEST}/source"
     if [[ -d "$NEW_SIFT_SOURCE" ]] && [[ "$NEW_SIFT_SOURCE" != "${SIFT_SOURCE:-}" ]]; then
         patch_sift_states "$NEW_SIFT_SOURCE"
         info "Re-running cast to apply patches..."
-        cast install teamdfir/sift-saltstack
+        cast install --user "$CAST_INSTALL_USER" teamdfir/sift-saltstack
     fi
 fi
 
