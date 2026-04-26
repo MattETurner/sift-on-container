@@ -116,7 +116,7 @@ sift-ubuntu-ports-repo-universe:
 
         Types: deb
         URIs: http://ports.ubuntu.com/ubuntu-ports/
-        Suites: noble
+        Suites: jammy jammy-updates jammy-security jammy-backports
         Components: main universe restricted multiverse
         Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
         Architectures: arm64
@@ -160,63 +160,30 @@ So PowerShell is **gracefully skipped** on ARM — no error, no action.
 
 ## ARM64 Package Status
 
-### Missed by the installer — fix with `apt install`
+### Recovered by `install.sh`
 
-These packages **do exist for ARM64** but failed to install during the SIFT salt run because the `ubuntu-ports` repository fix was applied after the initial attempt. The automated `install.sh` handles this.
+Several applications that were previously treated as non-functioning can work in the container when installed from Ubuntu Jammy ARM64 packages instead of the GIFT PPA package names expected by upstream SIFT states. The automated `install.sh` now installs these after Cast runs.
 
-```bash
-sudo apt install afflib-tools aircrack-ng autopsy sleuthkit xmount
-```
-
-| Package | Status |
+| Capability | Installed packages |
 |---|---|
-| `afflib-tools` | Available in ubuntu-ports (noble) |
-| `aircrack-ng` | Available in ubuntu-ports (jammy) |
-| `autopsy` | Available in ubuntu-ports (noble) |
-| `sleuthkit` | Available in ubuntu-ports (noble) |
-| `xmount` | Available in ubuntu-ports (noble) |
+| Disk/filesystem forensics | `afflib-tools`, `autopsy`, `ewf-tools`, `sleuthkit`, `xmount` |
+| Network/password tooling | `aircrack-ng` |
+| libyal CLI utilities | `libbde-utils`, `libesedb-utils`, `libevt-utils`, `libevtx-utils`, `libfsapfs-utils`, `libfvde-utils`, `libmsiecf-utils`, `libolecf-utils`, `libregf-utils`, `libvmdk-utils`, `libvshadow-utils` |
+| libyal Python bindings | Ubuntu `python3-lib*` dependencies pulled by `python3-dfvfs`/`python3-plaso` |
+| Timeline tooling | `plaso`, `python3-plaso`, `python3-dfvfs`, `python3-tsk` |
+| RAR extraction fallback | `unrar` |
 
-### Genuinely unavailable on ARM64
+### Still unavailable or intentionally skipped on Ubuntu 22.04 ARM64
 
-These packages simply do not exist as ARM64 builds. They fail silently during installation — everything else installs fine.
-
-**GIFT PPA publishes amd64-only builds for the entire libyal family:**
+These packages either do not have Ubuntu Jammy ARM64 packages, are absent from Ubuntu package indexes, or are intentionally amd64-only.
 
 | Package | Impact |
 |---|---|
-| `libbde` / `libbde-tools` | BitLocker encrypted volume support |
-| `libewf-tools` | Expert Witness Format (EWF/E01) CLI tools |
-| `libfvde` / `libfvde-tools` | FileVault 2 encrypted volume support |
-| `libesedb` / `libesedb-tools` | ESE/EDB database support (e.g. IE history) |
-| `libevt` / `libevt-tools` | Windows EVT event log support |
-| `libevtx` / `libevtx-tools` | Windows EVTX event log support |
-| `libmsiecf` | MS IE cache file support |
-| `libolecf` | OLE Compound File support |
-| `libregf` / `libregf-tools` | Windows Registry support (CLI tools) |
-| `libvshadow` / `libvshadow-tools` | Volume Shadow Copy support |
-| `libfsapfs-tools` | Apple File System (APFS) support |
-| `libvmdk` | VMware VMDK support (CLI tools) |
-| `libewf-python3`, `libregf-python3`, `libvshadow-python3` | Python bindings for the above |
-| `python3-pytsk3` | Python bindings for The Sleuth Kit |
-| `python3-dfvfs` | Depends on all of the above — not installable |
-| `plaso-tools` (log2timeline) | Depends on `python3-dfvfs` — not installable |
-
-> **Note:** The underlying libraries (`libewf2`, `libregf1`, `libvshadow1`, `libvmdk1`) **do** install on ARM64 — only the GIFT PPA versions of the tools and Python bindings are missing.
-
-**No ARM64 build exists anywhere:**
-
-| Package | Notes |
-|---|---|
-| `aeskeyfind` | No ARM64 package in any repo |
-| `bulk-extractor` | GIFT PPA amd64-only; no ARM64 build published |
+| `aeskeyfind` | Ubuntu Jammy package is amd64-only |
+| `bulk-extractor` | No Ubuntu package in Jammy/Noble/Questing package indexes; GIFT PPA path is amd64-oriented |
 | `cmospwd` | x86-specific tool by nature (reads CMOS hardware) |
-| `liblightgrep` | No ARM64 package available |
-| `rar` | RAR's Linux builds are x86-only; `unrar-free` is installed as a substitute |
-
-**amd64-only by design:**
-
-| Package | Notes |
-|---|---|
+| `liblightgrep` | No Ubuntu Jammy package found |
+| `rar` | RAR archive creation package is amd64-only; `unrar` is installed as the ARM64-safe extraction substitute |
 | `powershell` | Microsoft's Linux packages are amd64-only; gracefully skipped by the installer |
 
 ---
@@ -226,10 +193,10 @@ These packages simply do not exist as ARM64 builds. They fail silently during in
 The vast majority of SIFT tools install and run correctly on ARM64:
 
 - **Disk/filesystem forensics:** `sleuthkit`, `autopsy`, `testdisk`, `extundelete`, `scalpel`, `foremost`, `dc3dd`, `dcfldd`, `ewf-tools`, `afflib-tools`, `xmount`
-- **Memory/registry:** `volatility3` (via pip), `libregf1`, `libewf2`, `libvshadow1` (libraries install; CLI tools from GIFT PPA do not)
+- **Memory/registry:** `volatility3` (via pip), Ubuntu-native libyal libraries, Python bindings, and CLI utilities such as `regfinfo`, `vshadowinfo`, and related `*-utils` tools
 - **Malware analysis:** `radare2`, `yara`, `ssdeep`, `upx-ucl`, `vbindiff`, `ghex`
 - **Network forensics:** `wireshark`, `tcpflow`, `ngrep`, `ssldump`, `tcpreplay`, `scapy`
-- **Password/crypto:** `hashdeep`, `samdump2`, `ophcrack`, `hydra`, `aeskeyfind`
+- **Password/crypto:** `hashdeep`, `samdump2`, `ophcrack`, `hydra`
 - **Metadata:** `exiftool` (13.x, compiled from source), `exif`
 - **General tools:** `docker`, `git`, `python3`, `jq`, `vim`, `wget`, `curl`, `netcat`, etc.
 
@@ -237,8 +204,8 @@ The vast majority of SIFT tools install and run correctly on ARM64:
 
 ## Packaging / Automation
 
-- `Containerfile`: OCI-compatible image definition used by Apple Container builds.
-- `install.sh`: ARM64 installer script (forked/adapted from the community ARM64 work) used during image build.
+- `Containerfile`: OCI-compatible image definition used by Apple Container builds. It copies this repository's `install.sh` into the image and executes it as root during the build.
+- `install.sh`: the integrated ARM64 container installer. It owns package bootstrap, Cast installation, SIFT SaltStack patching, known ARM64 partial-failure handling, and installation of Ubuntu ARM64 recovery packages.
 
 ---
 
