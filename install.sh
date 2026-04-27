@@ -121,7 +121,6 @@ install_cast() {
     info "Downloading Cast v${CAST_VERSION} for ARM64..."
     local tmp_dir
     tmp_dir=$(mktemp -d)
-    trap 'rm -rf "$tmp_dir"' EXIT
 
     if command -v curl >/dev/null 2>&1; then
         curl -fL --progress-bar -o "${tmp_dir}/${CAST_DEB}" "${CAST_URL}"
@@ -131,6 +130,7 @@ install_cast() {
 
     info "Installing Cast..."
     dpkg -i "${tmp_dir}/${CAST_DEB}"
+    rm -rf "$tmp_dir"
     success "Cast installed: $(cast --version)"
 }
 
